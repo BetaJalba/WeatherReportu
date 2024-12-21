@@ -28,23 +28,13 @@
         /// </summary>
         private void InitializeComponent()
         {
-            listBox1 = new ListBox();
             SuspendLayout();
-            // 
-            // listBox1
-            // 
-            listBox1.FormattingEnabled = true;
-            listBox1.Location = new Point(186, 41);
-            listBox1.Name = "listBox1";
-            listBox1.Size = new Size(373, 364);
-            listBox1.TabIndex = 0;
             // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(8F, 20F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(800, 450);
-            Controls.Add(listBox1);
+            ClientSize = new Size(800, 557);
             Name = "Form1";
             Text = "Form1";
             Load += Form1_Load;
@@ -52,7 +42,5 @@
         }
 
         #endregion
-
-        private ListBox listBox1;
     }
 }
