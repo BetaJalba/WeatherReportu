@@ -43,7 +43,7 @@ namespace WeatherForecast
             CWeatherReturn weather = JsonConvert.DeserializeObject<CWeatherReturn>(Weather.GenerateResultsAt(lat, lon));
             CPollutionReturn pollution = JsonConvert.DeserializeObject<CPollutionReturn>(Pollution.GenerateResultsAt(lat, lon));
             CreateChart(weather, pollution);
-            MessageBox.Show(CalcolaIndicePearson(weather.hourly.temperature_2m.ToArray(), pollution.hourly.pm10.ToArray()).ToString());
+            MessageBox.Show($"Indice di Pearson: {CalcolaIndicePearson(weather.hourly.temperature_2m.ToArray(), pollution.hourly.pm10.ToArray())}.");
         }
 
         private void CreateChart(CWeatherReturn weather, CPollutionReturn pollution)
