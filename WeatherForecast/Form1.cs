@@ -32,6 +32,7 @@ namespace WeatherForecast
 
         float lat, lon;
         string intervallo;
+        double indicePearson;
 
         private void Form1_Load(object sender, EventArgs e)
         {
@@ -43,16 +44,21 @@ namespace WeatherForecast
             CWeatherReturn weather = JsonConvert.DeserializeObject<CWeatherReturn>(Weather.GenerateResultsAt(lat, lon));
             CPollutionReturn pollution = JsonConvert.DeserializeObject<CPollutionReturn>(Pollution.GenerateResultsAt(lat, lon));
             CreateChart(weather, pollution);
-            MessageBox.Show($"Indice di Pearson: {CalcolaIndicePearson(weather.hourly.temperature_2m.ToArray(), pollution.hourly.pm10.ToArray())}.");
+
+            if (intervallo != "mensile")
+                MessageBox.Show($"Indice di Pearson: {indicePearson}.");
         }
 
         private void CreateChart(CWeatherReturn weather, CPollutionReturn pollution)
         {
+            List<float> dataTemp = new List<float>();
+            List<float> dataPoll = new List<float>();
+
             // Create the PlotModel
-            var plotModel = new PlotModel { Title = $"Media {intervallo} temperatura e presenza particelle pm10 a lat: {lat}; lon: {lon}" };
+            PlotModel plotModel = new PlotModel { Title = $"Media {intervallo} temperatura e presenza particelle pm10 a lat: {lat}; lon: {lon}" };
 
             // Create a LineSeries and add data points
-            var lineSeries = new LineSeries
+            LineSeries lineSeries = new LineSeries
             {
                 Title = "Line Series",
                 MarkerType = MarkerType.Cross,
@@ -60,7 +66,7 @@ namespace WeatherForecast
                 Color = OxyColor.FromRgb(255,0,0),
             };
 
-            var lineSeriesP = new LineSeries
+            LineSeries lineSeriesP = new LineSeries
             {
                 Title = "Line Series",
                 MarkerType = MarkerType.Cross,
@@ -69,7 +75,7 @@ namespace WeatherForecast
             };
 
 
-            var categoryAxis = new CategoryAxis
+            CategoryAxis categoryAxis = new CategoryAxis
             {
                 Position = AxisPosition.Bottom, // Place the category axis at the bottom
                 Key = "CategoryAxis",
@@ -85,9 +91,22 @@ namespace WeatherForecast
                     int mese = int.Parse(weather.hourly.time[i].Substring(5, 2));
                     categoryAxis.Labels.Add($"{anno}-{mese}");
 
+
+                    // Retrieve the amount of time needed to get the monthly average (1-28/29/30/31)
                     int avanza = getAvanza(mese, anno);
-                    lineSeries.Points.Add(new DataPoint(j, getAverage(weather.hourly.temperature_2m, i, i + avanza)));
-                    lineSeriesP.Points.Add(new DataPoint(j, getAverage(pollution.hourly.pm10, i, i + avanza)));
+
+                    // Add the average to the lineSeries
+                    float averageTemp = getAverage(weather.hourly.temperature_2m, i, i + avanza);
+                    lineSeries.Points.Add(new DataPoint(j, averageTemp));
+                    dataTemp.Add(averageTemp);
+
+                    if (i + avanza <= pollution.hourly.pm10.Count)
+                    {
+                        float averagePoll = getAverage(pollution.hourly.pm10, i, i + avanza);
+                        lineSeriesP.Points.Add(new DataPoint(j, averagePoll));
+                        dataPoll.Add(averagePoll);
+                    }
+
                     i += avanza;
                 }
             } else 
@@ -98,15 +117,26 @@ namespace WeatherForecast
                     int anno = int.Parse(weather.hourly.time[i].Substring(0, 4));
                     categoryAxis.Labels.Add($"{anno}");
 
+                    // Retrieve the amount of time needed to get the yearly average (1-365/366)
                     int avanza = getAvanza(anno);
-                    lineSeries.Points.Add(new DataPoint(j, getAverage(weather.hourly.temperature_2m, i, i + avanza)));
-                    lineSeriesP.Points.Add(new DataPoint(j, getAverage(pollution.hourly.pm10, i, i + avanza)));
+
+                    // Add the average to the lineSeries
+                    float averageTemp = getAverage(weather.hourly.temperature_2m, i, i + avanza);
+                    lineSeries.Points.Add(new DataPoint(j, averageTemp));
+                    dataTemp.Add(averageTemp);
+
+                    if (i + avanza <= pollution.hourly.pm10.Count)
+                    {
+                        float averagePoll = getAverage(pollution.hourly.pm10, i, i + avanza);
+                        lineSeriesP.Points.Add(new DataPoint(j, averagePoll));
+                        dataPoll.Add(averagePoll);
+                    }
+
                     i += avanza + 1;
                 }
             }
 
             
-
             plotModel.Axes.Add(categoryAxis);
 
             // Add the LineSeries to the PlotModel
@@ -122,8 +152,12 @@ namespace WeatherForecast
 
             // Add the PlotView to the Form's Controls
             this.Controls.Add(plotView);
+
+            // Computes Pearson index
+            indicePearson = CIndicePearson.CalcolaIndicePearson(dataTemp.ToArray(), dataPoll.ToArray());
         }
 
+        // Returns the interval of time needed to take count of each month
         int getAvanza(int mese, int anno)
         {
             if (mese <= 7)
@@ -134,7 +168,7 @@ namespace WeatherForecast
                 }
                 else if (mese == 2)
                 {
-                    if (IsBisestile(anno))
+                    if (isBisestile(anno))
                         return 24 * (int)Mesi.FebbraioBisestile;
                     else
                         return 24 * (int)Mesi.Febbraio;
@@ -157,9 +191,10 @@ namespace WeatherForecast
             }
         }
 
+        // Returns the interval of time needed to take count of each year
         int getAvanza(int anno)
         {
-            if (IsBisestile(anno))
+            if (isBisestile(anno))
                 return 24 * 366;
             else
                 return 24 * 365;
@@ -178,37 +213,9 @@ namespace WeatherForecast
             return sum / (float)count;
         }
 
-        bool IsBisestile(int anno)
+        bool isBisestile(int anno)
         {
             return (anno % 4 == 0 && (anno % 100 != 0 || anno % 400 == 0));
-        }
-
-        double CalcolaIndicePearson(float[] X, float[] Y)
-        {
-            if (X.Length != Y.Length)
-            {
-                Array.Resize(ref Y, X.Length);
-            }
-
-            int n = X.Length;
-
-            // Calcolo delle somme necessarie
-            double sommaX = X.Sum();
-            double sommaY = Y.Sum();
-            double sommaXY = X.Zip(Y, (x, y) => x * y).Sum();
-            double sommaX2 = X.Select(x => x * x).Sum();
-            double sommaY2 = Y.Select(y => y * y).Sum();
-
-            // Calcolo dell'indice di Pearson
-            double numeratore = (n * sommaXY) - (sommaX * sommaY);
-            double denominatore = Math.Sqrt((n * sommaX2 - Math.Pow(sommaX, 2)) * (n * sommaY2 - Math.Pow(sommaY, 2)));
-
-            if (denominatore == 0)
-            {
-                return 0; // Se il denominatore è 0, la correlazione non è definita (avviso: divisione per zero)
-            }
-
-            return numeratore / denominatore;
         }
     }
 }
